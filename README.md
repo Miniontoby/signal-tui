@@ -1,10 +1,33 @@
-signal-tui relies on this https://github.com/AsamK/signal-cli
+# Signal TUI
 
-and ncurses, which can be installed on ubuntu/debian with this: 
+A textual user interface for signal using signal-cli
 
-	 sudo apt install libncurses5-dev libncursesw5-dev
 
-Warning: it appears that when you message someone from this, you lose the ability to message that person from the phone number you used. Use at own risk. This will hopefully cleared up when I implement adding other devices.
+# Dependencies
 
-![Signal-Tui Interface](https://raw.githubusercontent.com/ekarnis/signal-tui/blob/master/signal-tui.png)
+signal-tui relies on the following things:
+
+- [signal-cli](https://github.com/AsamK/signal-cli), with the dbus service enabled!
+- ncurses, which can be installed on ubuntu/debian with this:
+	```sh
+sudo apt install libncurses5-dev libncursesw5-dev
+	```
+- passlib, which can be installed with `python3 -m pip install passlib`
+- qrcodegen, which can be installed with `python3 -m pip install qrcodegen`
+
+
+# How to run
+
+signal-tui can be started/used by running the `signal-tui.py` file: `python3 signal-tui.py`
+
+Or make the file executable and run it:
+```sh
+chmod u+x signal-tui.py
+./signal-tui.py
+```
+
+
+# Screenshot
+
+![Signal-Tui Interface](signal-tui.png)
 

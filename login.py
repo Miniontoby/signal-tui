@@ -18,11 +18,12 @@ This will be under gpl someday
 import curses
 import time
 import pathlib
-
-MAX_ATTEMPTS = 3
+import shared
+from shared import INSTALL_DIRECTORY, MAX_ATTEMPTS
 
 screen = None
 
+from passlib.hash import pbkdf2_sha256
 from curses.textpad import rectangle
 
 def open_login_screen(scr, attempts):
@@ -31,7 +32,7 @@ def open_login_screen(scr, attempts):
     #return True
     #delete to reenable login
 
-    global screen
+    global screen, current_username, phone_number
 
     screen = scr
 
@@ -39,17 +40,7 @@ def open_login_screen(scr, attempts):
 
     x = int(curses.COLS / 2 - 40)
 
-    screen.addstr(10, x, "          @@\                               @@\          @@\               @@\ ")
-    screen.addstr(11, x, "          \__|                              @@ |         @@ |              \__|")
-    screen.addstr(12, x, " @@@@@@@\ @@\  @@@@@@\  @@@@@@@\   @@@@@@\  @@ |       @@@@@@\   @@\   @@\ @@\ ")
-    screen.addstr(13, x, "@@  _____|@@ |@@  __@@\ @@  __@@\  \____@@\ @@ |@@@@@@\|_@@  _|  @@ |  @@ |@@ |")
-    screen.addstr(14, x, "\@@@@@@\  @@ |@@ /  @@ |@@ |  @@ | @@@@@@@ |@@ |\______\ @@ |    @@ |  @@ |@@ |")
-    screen.addstr(15, x, " \____@@\ @@ |@@ |  @@ |@@ |  @@ |@@  __@@ |@@ |         @@ |@@\ @@ |  @@ |@@ |")
-    screen.addstr(16, x, "@@@@@@@  |@@ |\@@@@@@@ |@@ |  @@ |\@@@@@@@ |@@ |         \@@@@  |\@@@@@@  |@@ |")
-    screen.addstr(17, x, "\_______/ \__| \____@@ |\__|  \__| \_______|\__|          \____/  \______/ \__|")
-    screen.addstr(18, x, "              @@\   @@ |")
-    screen.addstr(19, x, "              \@@@@@@  |                                         By Eric Karnis")
-    screen.addstr(20, x, "               \______/ ")
+    shared.addBannerTo(screen, 10, x)
 
     if attempts != 0 and attempts < MAX_ATTEMPTS:
         screen.addstr(22, int(curses.COLS / 2 - 13), "Wrong Password or Username")
@@ -64,8 +55,15 @@ def open_login_screen(scr, attempts):
     username = input_username()
     password = input_password()
 
-    if check_username(username) and check_password(password):
-        return True
+    if check_username(username):
+        content = open(INSTALL_DIRECTORY + "/accounts/" + username).read().split("\n") # Password\nphonenumber
+        if check_password(password, content[0]):
+            shared.username = username
+            shared.phone_number = content[1] or ""
+            return True
+        else:
+            attempts += 1
+            return open_login_screen(screen, attempts)
     else:
         attempts += 1
         return open_login_screen(screen, attempts)
@@ -97,15 +95,11 @@ def input_password():
 
 def check_username(username):
     # signal-tui's directory
-    user_database = "/home/vgatz/Projects/signal-tui/" + username
+    user_database = INSTALL_DIRECTORY + "/accounts/" + username
     p = pathlib.Path(user_database)
 
     # user exists if database exists
     return p.is_file()
 
-# TODO implement password creation, hashing, and storing
-def check_password(password):
-    if password == "e":
-        return True
-    else:
-        return False
+def check_password(password, passwordhash):
+    return pbkdf2_sha256.verify(password, passwordhash)

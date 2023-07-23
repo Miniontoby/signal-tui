@@ -18,11 +18,13 @@ This will be under gpl someday
 import curses
 import time
 import pathlib
-
-USERNAME_MAX_LENGTH = 20
+import re
+import shared
+from shared import INSTALL_DIRECTORY, USERNAME_MAX_LENGTH
 
 screen = None
 
+from passlib.hash import pbkdf2_sha256
 from curses.textpad import rectangle
 
 def open_user_creation_screen(scr, error_message):
@@ -35,17 +37,7 @@ def open_user_creation_screen(scr, error_message):
 
     x = int(curses.COLS / 2 - 40)
 
-    screen.addstr(10, x, "          @@\                               @@\          @@\               @@\ ")
-    screen.addstr(11, x, "          \__|                              @@ |         @@ |              \__|")
-    screen.addstr(12, x, " @@@@@@@\ @@\  @@@@@@\  @@@@@@@\   @@@@@@\  @@ |       @@@@@@\   @@\   @@\ @@\ ")
-    screen.addstr(13, x, "@@  _____|@@ |@@  __@@\ @@  __@@\  \____@@\ @@ |@@@@@@\|_@@  _|  @@ |  @@ |@@ |")
-    screen.addstr(14, x, "\@@@@@@\  @@ |@@ /  @@ |@@ |  @@ | @@@@@@@ |@@ |\______\ @@ |    @@ |  @@ |@@ |")
-    screen.addstr(15, x, " \____@@\ @@ |@@ |  @@ |@@ |  @@ |@@  __@@ |@@ |         @@ |@@\ @@ |  @@ |@@ |")
-    screen.addstr(16, x, "@@@@@@@  |@@ |\@@@@@@@ |@@ |  @@ |\@@@@@@@ |@@ |         \@@@@  |\@@@@@@  |@@ |")
-    screen.addstr(17, x, "\_______/ \__| \____@@ |\__|  \__| \_______|\__|          \____/  \______/ \__|")
-    screen.addstr(18, x, "              @@\   @@ |")
-    screen.addstr(19, x, "              \@@@@@@  |                                         By Eric Karnis")
-    screen.addstr(20, x, "               \______/ ")
+    shared.addBannerTo(screen, 10, x)
 
     if error_message == 0:
         screen.addstr(22, int(curses.COLS / 2 - len("Create new user")/2), "Create new user")
@@ -58,11 +50,18 @@ def open_user_creation_screen(scr, error_message):
     password = input_password()
 
     username_test = check_username(username)
+    password_test = check_password(password)
 
-    if username_test == 0 and check_password(password):
-        return True
+    if username_test == 0:
+        if password_test == 0:
+            shared.phone_number = ''
+            hash = pbkdf2_sha256.hash(password)
+            open(INSTALL_DIRECTORY + "/accounts/" + username,"w").write(hash + "\n")
+            return True
+        else:
+            return open_user_creation_screen(screen, password_test)
     else:
-        open_user_creation_screen(screen, username_test)
+        return open_user_creation_screen(screen, username_test)
 
 def input_username():
 
@@ -91,23 +90,25 @@ def input_password():
 
 def check_username(username):
     # signal-tui's directory
-    user_database = "/home/vgatz/Projects/signal-tui/" + username
+    user_database = INSTALL_DIRECTORY + "/accounts/" + username
     p = pathlib.Path(user_database)
 
     # user exists if database exists
     if p.is_file():
         return "Username taken"
 
-    # else create user database
-
     if len(username) > USERNAME_MAX_LENGTH:
         return "Username too long"
 
+    # else create user database
+
+    shared.username = username
+
     return 0
 
-# TODO implement password creation, hashing, and storing
 def check_password(password):
-    if password == "e":
-        return True
-    else:
-        return False
+    if len(password) < 8: return "Password must be 8+ characters"
+    if not re.search("[a-z]", password): return "Password must include lowercased characters"
+    if not re.search("[A-Z]", password): return "Password must include uppercased characters"
+    if not re.search("[0-9]", password): return "Password must include numbers"
+    return 0

@@ -17,12 +17,12 @@ This will be under gpl someday
 # !/usr/bin/env python3
 import curses
 import time
+import shared
+from signal_cli_wrapper import get_contacts, update_contact
 
 from curses.textpad import Textbox, rectangle
 
 screen = None
-
-contact_buffer = []
 
 contact_highlighted = 0
 
@@ -30,10 +30,11 @@ first_contact_on_page = 0
 
 def import_contacts(sn):
     # TODO add a database
-    global screen, contact_buffer
+    global screen
     screen = sn
-    contact_buffer = [[4168870649,"Eric's Phone"], [1, "Manuela Bartolomeo"], [2, "Ace Falkner"], [3, "Bryan Hayes"], [4, "Luke Doliszny"], [5, "Noah Stranger"], [6, "Eliot Old"],[7,"John Smith"], [8, "Manuel Bart"], [9, "Aces Falk"], [10, "Bry Hay"], [11, "Luk Dol"], [12, "No Strange"], [13, "Felix Beiderman"], [14, "Linus T"], [15, "Richard S"], [16, "Peter Parker"],[17,"Tales Ferreira"], [111, "Manuela Bartolomeo"], [211, "Ace Falkner"], [311, "Bryan Hayes"], [411, "Luke Doliszny"], [511, "Noah Stranger"], [611, "Eliot Old"],[711,"John Smith"], [811, "Manuel Bart"], [911, "Aces Falk"], [101, "Bry Hay"], [111, "Luk Dol"], [112, "No Strange"], [113, "Felix Beiderman"], [114, "Linus T"], [115, "Richard S"], [116, "Peter Parker"]]
-    return contact_buffer
+    #shared.contact_buffer = [[4168870649,"Eric's Phone"], [1, "Manuela Bartolomeo"], [2, "Ace Falkner"], [3, "Bryan Hayes"], [4, "Luke Doliszny"], [5, "Noah Stranger"], [6, "Eliot Old"],[7,"John Smith"], [8, "Manuel Bart"], [9, "Aces Falk"], [10, "Bry Hay"], [11, "Luk Dol"], [12, "No Strange"], [13, "Felix Beiderman"], [14, "Linus T"], [15, "Richard S"], [16, "Peter Parker"],[17,"Tales Ferreira"], [111, "Manuela Bartolomeo"], [211, "Ace Falkner"], [311, "Bryan Hayes"], [411, "Luke Doliszny"], [511, "Noah Stranger"], [611, "Eliot Old"],[711,"John Smith"], [811, "Manuel Bart"], [911, "Aces Falk"], [101, "Bry Hay"], [111, "Luk Dol"], [112, "No Strange"], [113, "Felix Beiderman"], [114, "Linus T"], [115, "Richard S"], [116, "Peter Parker"]]
+    shared.contact_buffer = get_contacts()
+    return shared.contact_buffer
 
 def open_contacts_screen(sn):
     global screen, first_contact_on_page
@@ -69,10 +70,10 @@ def draw_contacts(name_highlighted):
     screen.addstr(3, 3, "A to add")
     screen.addstr(3, curses.COLS - len("I to edit") - 3, "I to edit")
 
-    for contact in contact_buffer[first_contact_on_page:]:
+    for contact in shared.contact_buffer[first_contact_on_page:]:
 
         # if selected
-        if contact_buffer.index(contact) == name_highlighted:
+        if shared.contact_buffer.index(contact) == name_highlighted:
             screen.addstr(top_y + 2,
                           left_x + 2,
                           contact[1][:right_x - left_x - 2],
@@ -121,6 +122,8 @@ def left():
 def down():
     global contact_highlighted, first_contact_on_page
 
+    contact_buffer = shared.contact_buffer
+
     if (contact_highlighted + 3) < contact_buffer.index(contact_buffer[-1]):
 
         if (((contact_highlighted + 1) % 16) <= 12 and ((contact_highlighted + 1) % 16) != 0) or contact_highlighted == 0:
@@ -145,6 +148,8 @@ def up():
 def right():
     global contact_highlighted, first_contact_on_page
 
+    contact_buffer = shared.contact_buffer
+
     if contact_highlighted != contact_buffer.index(contact_buffer[-1]):
 
         if ((contact_highlighted + 1) % 16) != 0:
@@ -157,42 +162,23 @@ def right():
 
 def edit_contact():
 
-    entry = contact_highlighted % 16
+    xamount = 4
+    yamount = 4
+
+    entry = contact_highlighted % (xamount * yamount)
 
     #hardcoded 4x4 grid
     #TODO: make this more flexible
 
-    if 0 <= entry <= 3:
-        top_y = 5
-        bottom_y = int((curses.LINES - 4)/4)
+    for r in range(0, xamount+1): # not inclusive
+        if xamount * r <= entry < xamount * (r + 1):
+            top_y = 5 + r * int((curses.LINES - yamount)/yamount)
+            bottom_y = (r + 1) * int((curses.LINES - yamount)/yamount)
 
-    elif 4 <= entry <= 7:
-        top_y = 5 + int((curses.LINES - 4)/4)
-        bottom_y = 2 * int((curses.LINES - 4)/4)
-
-    elif 8 <= entry <= 11:
-        top_y = 5 + 2 * int((curses.LINES - 4)/4)
-        bottom_y = 3 * int((curses.LINES - 4)/4)
-
-    elif 12 <= entry <= 15:
-        top_y = 5 + 3 * int((curses.LINES - 4)/4)
-        bottom_y = 4 * int((curses.LINES - 4)/4)
-
-    if entry % 4 == 0:
-        left_x = 4
-        right_x = int((curses.COLS - 4)/4)
-
-    elif (entry - 1) % 4 == 0:
-        left_x = 4 + int((curses.COLS - 4)/4)
-        right_x = 2 * int((curses.COLS - 4)/4)
-
-    elif (entry - 2) % 4 == 0:
-        left_x = 4 + 2 * int((curses.COLS - 4)/4)
-        right_x = 3 * int((curses.COLS - 4)/4)
-
-    elif (entry - 3) % 4 == 0:
-        left_x = 4 + 3 * int((curses.COLS - 4)/4)
-        right_x = 4 * int((curses.COLS - 4)/4)
+    for r in range(0, yamount):
+        if (entry - r) % xamount == 0:
+            left_x = 4 + r * int((curses.COLS - xamount)/xamount)
+            right_x = (r + 1) * int((curses.COLS - xamount)/xamount)
 
     erase(left_x + 1, top_y + 1, right_x, bottom_y)
 
@@ -209,19 +195,18 @@ def edit_contact():
     new_name = add_text_box(1, int((curses.COLS - 4)/4) - 9, top_y + 4, left_x + 3)
     new_number = add_text_box(1, int((curses.COLS - 4)/4) - 9, top_y + 8, left_x + 3)
 
-    # TODO: write name and number to database
-    
+    addzero = str(new_number).startswith("0")
     try: new_number = int(new_number)
     except ValueError:
         erase(left_x + 1, top_y + 1, right_x, bottom_y)
         screen.addstr(top_y + 2, left_x + 2, "number not an int")
         screen.refresh()
         time.sleep(3)
-        draw_contacts(contact_highlighted)
+        draw_contacts(shared.contact_highlighted)
 
     if type(new_number) is int:
-        if len(str(new_number)) == 10:
-            contact_buffer[contact_highlighted][0] = new_number
+        if len(str(new_number)) == 10 if not(addzero) else 9:
+            update_contact("number", shared.contact_buffer[contact_highlighted], new_number)
         else:
             erase(left_x + 1, top_y + 1, right_x, bottom_y)
             screen.addstr(top_y + 2, left_x + 2, "number not 10 digits")
@@ -229,7 +214,7 @@ def edit_contact():
             time.sleep(3)
             draw_contacts(contact_highlighted)
     if new_name:
-        contact_buffer[contact_highlighted][1] = new_name
+        update_contact("name", shared.contact_buffer[contact_highlighted], new_name)
     else:
         erase(left_x + 1, top_y + 1, right_x, bottom_y)
         screen.addstr(top_y + 2, left_x + 2, "enter a name")
@@ -274,6 +259,7 @@ def add_contact():
 
     # TODO: write name and number to database
     if new_name:
+        addzero = new_number.startswith("0")
         try: new_number = int(new_number)
         except ValueError:
             erase(1, 3, curses.COLS - 1, curses.LINES - 1)
@@ -286,9 +272,9 @@ def add_contact():
             add_contact()
 
         if type(new_number) is int:
-            if len(str(new_number)) == 10:
+            if len(str(new_number)) == 10 if not(addzero) else 9:
                 new_contact = [new_number,new_name]
-                contact_buffer.append(new_contact)
+                shared.contact_buffer.append(new_contact)
             else:
                 erase(1, 3, curses.COLS - 1, curses.LINES - 1)
                 rectangle(screen, int(curses.LINES/5), int(curses.COLS/4), int(3 * curses.LINES/4), int(3 * curses.COLS/4))        

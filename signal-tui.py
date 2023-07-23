@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 '''
           @@\                               @@\          @@\               @@\
           \__|                              @@ |         @@ |              \__|
@@ -14,7 +15,6 @@
 By Eric Karnis
 This will be under gpl someday
 '''
-# !/usr/bin/env python3
 import curses
 import traceback
 import pathlib
@@ -22,6 +22,8 @@ import os
 import re
 
 #Signal-tui modules
+import shared
+shared.init()
 import splash
 import login
 import user_creation
@@ -30,30 +32,13 @@ import contacts
 import settings
 import signal_cli_wrapper
 
-# Define the appearance of some interface elements
-hotkey_attr = curses.A_BOLD | curses.A_UNDERLINE
-menu_attr = curses.A_NORMAL
-
 # Define additional constants
 EXIT = 0
 CONTINUE = 1
-
-# TODO change this to a more sensible and flexible directory
-INSTALL_DIRECTORY = "/home/vgatz/Projects/signal-tui/"
+INSTALL_DIRECTORY = shared.INSTALL_DIRECTORY
 
 # Give screen module scope
 screen = None
-
-# Define the topbar menus
-menu_items = ["Messages", "Contacts", "Guide", "Settings", "Exit"]
-
-# variables that define the state of the program
-current_screen = "login"
-
-current_conversation = 0
-
-contact_buffer = []
-message_buffer = []
 
 # fills a box with the given coordinates with spaces
 def erase(top_x, top_y, bottom_x, bottom_y):
@@ -64,30 +49,6 @@ def erase(top_x, top_y, bottom_x, bottom_y):
     screen.refresh()
 
 
-####################
-##### Top Menu #####
-####################
-
-def draw_top_menu():
-    left = 6
-
-    for menu_name in menu_items:
-        menu_hotkey = menu_name[0]
-        menu_no_hot = menu_name[1:]
-        offset = int(curses.COLS/10 - len(menu_name)/2)
-        screen.addstr(1, left + offset, menu_hotkey, hotkey_attr)
-        screen.addstr(1, left + offset + 1, menu_no_hot, menu_attr)
-        left = left + int(curses.COLS/6)
-
-    # Draw application title
-    offset = int(curses.COLS - len("signal-tui"))
-    screen.addstr(1, offset - 3, "signal-tui", curses.A_STANDOUT)
-
-    #bottom line of menu area
-    screen.hline(2, 2, curses.ACS_HLINE, curses.COLS - 4)
-
-    screen.refresh()
-
 
 ##############
 #### Main ####
@@ -95,47 +56,64 @@ def draw_top_menu():
 
 def main(stdscr):
 
-    global screen, contact_buffer, message_buffer, current_conversation, current_screen
+    global screen
     screen = stdscr
     screen.box()
     screen.refresh()
 
     # Check if any users exist by looking for their databases
     # if none exist, open user creation screen
-    filenames = next(os.walk(INSTALL_DIRECTORY))[2]
-    p = re.compile("^[^.]*$")
+    filenames = next(os.walk(INSTALL_DIRECTORY + "/accounts/"))[2]
+    p = re.compile("^[^.]*$") # just check for files without extension
+    found = False
 
     for file in filenames:
         search_object = p.search(str(file))
 
         if search_object:
+           found = True
            break
 
-        elif filenames.index(file) == filenames.index(filenames[-1]):
-            user_creation.open_user_creation_screen(screen)
+    # if code returns None then E had been pressed
+    code = splash.open_splash_screen(screen)
 
     # Start the program
-    if splash.open_splash_screen(screen):
+    if found and code is True:
         if login.open_login_screen(screen, 0):
             screen.clear()
-            draw_top_menu()
+            shared.draw_top_menu(screen)
             screen.border(0)
-            contact_buffer = contacts.import_contacts(screen)
-            message_buffer = messages.import_messages()
-            messages.open_messages_screen(screen, 0, contact_buffer)
-            current_screen = "messages"
+            if shared.phone_number == "": # Need to set phonenumber first
+                shared.current_screen = "settings"
+                settings.open_settings_screen(screen)
+            else:
+                shared.contact_buffer = contacts.import_contacts(screen)
+                shared.message_buffer = messages.import_messages()
+                shared.current_screen = "messages"
+                messages.open_messages_screen(screen, 0, shared.contact_buffer)
             curses.curs_set(False)
+
+    elif code is None:
+        return # exit
 
     else:
         user_creation.open_user_creation_screen(screen, 0)
         screen.clear()
-        draw_top_menu()
+        shared.draw_top_menu(screen)
         screen.border(0)
-        contact_buffer = contacts.import_contacts(screen)
-        message_buffer = messages.import_messages()
-        messages.open_messages_screen(screen, 0, contact_buffer)
-        current_screen = "messages"
+        #shared.contact_buffer = contacts.import_contacts(screen)
+        #shared.message_buffer = messages.import_messages()
+        #shared.current_screen = "messages"
+        #messages.open_messages_screen(screen, 0, shared.contact_buffer)
+        shared.current_screen = "settings"
+        settings.open_settings_screen(screen)
         curses.curs_set(False)
+
+    if not(shared.phone_number == ""):
+        # Start signal message listener
+        signalthread = shared.KillableThread(target=signal_cli_wrapper.signalMessageListener, name='MessageListener for {}'.format(shared.phone_number))
+        signalthread.daemon = True
+        signalthread.start()
 
     # This loop controls the hotkeys. Pressing e will exit the loop and the program
     key_struck = ""
@@ -144,72 +122,82 @@ def main(stdscr):
 
         # These hotkeys should be available from every screen
         if key_struck == ord("m"):
-            erase(1, 3, curses.COLS - 1, curses.LINES - 1)
-            messages.open_messages_screen(screen, current_conversation, contact_buffer)
-            current_screen = "messages"
+            if not(shared.phone_number == ""):
+                erase(1, 3, curses.COLS - 1, curses.LINES - 1)
+                shared.current_screen = "messages"
+                messages.open_messages_screen(screen, shared.current_conversation, shared.contact_buffer)
 
         elif key_struck == ord("c"):
-            current_screen = "contacts"
-            erase(1, 3, curses.COLS - 1, curses.LINES - 1)
-            contacts.open_contacts_screen(screen)
+            if not(shared.phone_number == ""):
+                erase(1, 3, curses.COLS - 1, curses.LINES - 1)
+                shared.current_screen = "contacts"
+                contacts.open_contacts_screen(screen)
 
         elif key_struck == ord("s"):
-            current_screen = "settings"
-            erase(1, 3, curses.COLS - 1, curses.LINES - 1)
-            settings.open_settings_screen(screen)
+            if not(shared.phone_number == ""):
+                erase(1, 3, curses.COLS - 1, curses.LINES - 1)
+                shared.current_screen = "settings"
+                settings.open_settings_screen(screen)
 
         # the hotkeys below are screen specific
-        if current_screen == "messages":
+        if shared.current_screen == "messages":
             if key_struck == ord("i"):
-                messages.write_message(current_conversation)
+                messages.write_message(shared.current_conversation)
 
-            elif key_struck == ord("h"):
-                if current_conversation != len(contact_buffer) - 1:
-                    current_conversation += 1
-                    messages.open_messages_screen(screen, current_conversation, contact_buffer)
+            elif key_struck == ord("u"):
+                messages.edit_message(shared.current_conversation)
 
-            elif key_struck == ord("j"):
-                messages.page_down(current_conversation)
+            elif key_struck == curses.KEY_RIGHT:
+                if shared.current_conversation != len(shared.contact_buffer) - 1:
+                    shared.current_conversation += 1
+                else:
+                    shared.current_conversation = 0
+                messages.open_messages_screen(screen, shared.current_conversation, shared.contact_buffer)
 
-            elif key_struck == ord("k"):
-                messages.page_up(current_conversation)
+            elif key_struck == curses.KEY_DOWN:
+                messages.page_down(shared.current_conversation)
 
-            elif key_struck == ord("l"):
-                if current_conversation != 0:
-                    current_conversation -= 1
-                    messages.open_messages_screen(screen, current_conversation, contact_buffer)
+            elif key_struck == curses.KEY_UP:
+                messages.page_up(shared.current_conversation)
 
-        elif current_screen == "contacts":
+            elif key_struck == curses.KEY_LEFT:
+                if shared.current_conversation != 0:
+                    shared.current_conversation -= 1
+                else:
+                    shared.current_conversation = len(shared.contact_buffer) - 1
+                messages.open_messages_screen(screen, shared.current_conversation, shared.contact_buffer)
+
+        elif shared.current_screen == "contacts":
             if key_struck == ord("i"):
                 contacts.edit_contact()
 
             elif key_struck == ord("a"):
                 contacts.add_contact()
 
-            elif key_struck == ord("h"):
+            elif key_struck == curses.KEY_LEFT:
                 contacts.left()
 
-            elif key_struck == ord("j"):
+            elif key_struck == curses.KEY_DOWN:
                 contacts.down()
 
-            elif key_struck == ord("k"):
+            elif key_struck == curses.KEY_UP:
                 contacts.up()
 
-            elif key_struck == ord("l"):
+            elif key_struck == curses.KEY_RIGHT:
                 contacts.right()
 
-        elif current_screen == "settings":
-            if key_struck == ord("l"):
+        elif shared.current_screen == "settings":
+            if key_struck == curses.KEY_ENTER or key_struck == 10 or key_struck == 13:
                 settings.edit_setting()
 
-            if key_struck == ord("h"):
+            elif key_struck == ord("h"): # idk why this is here
                 erase(1, 3, curses.COLS - 1, curses.LINES - 1)
                 settings.open_settings_screen(screen)
-                
-            elif key_struck == ord("j"):
+
+            elif key_struck == curses.KEY_DOWN:
                 settings.down()
 
-            elif key_struck == ord("k"):
+            elif key_struck == curses.KEY_UP:
                 settings.up()
 
 
@@ -236,6 +224,7 @@ if __name__ == '__main__':
         curses.nocbreak()
         # Terminate curses
         curses.endwin()
+
 
     # If something goes wrong, restore terminal and report exception
     except:
