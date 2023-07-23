@@ -47,9 +47,9 @@ def open_messages_screen(sn, current_conversation, contact_buffer):
     screen.addstr(messages_area_bottom_y - 2,
                   int(curses.COLS/4) + 1,
                   " I to write ")
-    screen.addstr(messages_area_bottom_y - 2,
-                  int(curses.COLS/4) + 1 + len(" I to write ") + 4,
-                  " U to update ")
+    #screen.addstr(messages_area_bottom_y - 2,
+    #              int(curses.COLS/4) + 1 + len(" I to write ") + 4,
+    #              " U to update ")
     screen.addstr(messages_area_bottom_y - 2,
                   curses.COLS - len(" Ctrl-G to send ") - 1,
                   " Ctrl-G to send ")
