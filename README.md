@@ -8,10 +8,7 @@ A textual user interface for signal using signal-cli
 signal-tui relies on the following things:
 
 - [signal-cli](https://github.com/AsamK/signal-cli), with the dbus service enabled!
-- ncurses, which can be installed on ubuntu/debian with this:
-	```sh
-sudo apt install libncurses5-dev libncursesw5-dev
-	```
+- ncurses, which can be installed on ubuntu/debian with apt: `sudo apt install libncurses5-dev libncursesw5-dev`
 - passlib, which can be installed with `python3 -m pip install passlib`
 - qrcodegen, which can be installed with `python3 -m pip install qrcodegen`
 
