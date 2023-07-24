@@ -3,7 +3,7 @@
 A textual user interface for signal using signal-cli
 
 
-# Dependencies
+## Dependencies
 
 signal-tui relies on the following things:
 
@@ -13,7 +13,7 @@ signal-tui relies on the following things:
 - qrcodegen, which can be installed with `python3 -m pip install qrcodegen`
 
 
-# How to run
+## How to run
 
 signal-tui can be started/used by running the `signal-tui.py` file: `python3 signal-tui.py`
 
@@ -24,7 +24,16 @@ chmod u+x signal-tui.py
 ```
 
 
-# Screenshot
+## Screenshot
 
 ![Signal-Tui Interface](signal-tui.png)
 
+
+## Limitations
+
+- Not all emoji's work, only those which are in your terminal font
+- Attachments cannot be viewed and you won't even know if there is one at a message
+- You cannot upload attachments
+- Group channels are not supported
+- Editing messages doesn't work, since dbus is not allowing it
+- Markdown/Text Styling doesn't work

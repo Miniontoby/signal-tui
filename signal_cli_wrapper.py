@@ -25,6 +25,7 @@ import subprocess
 import re
 import shutil
 import shared
+from pathlib import Path
 from pydbus import SystemBus
 from gi.repository import GLib
 
@@ -43,6 +44,11 @@ def get_signal_object(with_number=False,with_configuration=False):
         print (e)
     return signal
 
+# Get List of registered accounts as phone number array
+def list_accounts():
+    signal = get_signal_object(False)
+    accountlist = signal.listAccounts()
+    return [i.replace('/org/asamk/Signal/_', '+') for i in signal.listAccounts()]
 
 # Registers the user with Whisper Systems. If it works, they will send a
 # verification number to the user's phone
@@ -88,7 +94,9 @@ def get_messages():
     #          [r] [12389765]           <+11234567890> text test test
 
     signal = get_signal_object(True)
-    logfile = open("logfile.txt", "r")
+    filename = shared.INSTALL_DIRECTORY + "/accounts/" + shared.username + ".logfile"
+    Path(filename).touch(exist_ok=True)
+    logfile = open(filename, "r")
     for line in logfile:
         match = re.search(regex, line)
         if match:
@@ -106,7 +114,7 @@ def get_messages():
 # Receive messages from others
 def messageReceive(timestamp, sender, groupID, message, attachments):
     if len(groupID) == 0: # Skip groups which makes the receiver always me, so save by sender
-        f = open("logfile.txt", "a")
+        f = open(shared.INSTALL_DIRECTORY + "/accounts/" + shared.username + ".logfile", "a")
         f.write("[r] [{time}] <{sender}> {message}\n".format(time=timestamp, sender=sender, message=message.strip().replace("\n", "\\n")))
         f.close()
 
@@ -124,11 +132,13 @@ def messageReceive(timestamp, sender, groupID, message, attachments):
 def syncMessageReceive(timestamp, sender, destination, groupID, message, attachments):
     if len(groupID) == 0: # Skip groups, sender is always me, destination is the user
         found = False
-        shutil.copyfile("logfile.txt", "logfile2.txt") # Copy to tmp file, since cannot read when write
-        with open("logfile2.txt", "w" if attachments is False and type(sender) is int else "a") as new_file:
+        filename = shared.INSTALL_DIRECTORY + "/accounts/" + shared.username + ".logfile"
+        Path(filename).touch(exist_ok=True)
+        shutil.copyfile(filename, filename + "2") # Copy to tmp file, since cannot read when write
+        with open(filename + "2", "w" if attachments is False and type(sender) is int else "a") as new_file:
             new = "[s] [{time}] <{dest}> {message}\n".format(time=timestamp, dest=destination, message=message.strip().replace("\n", "\\n"))
             if attachments is False and type(sender) is int: # when editing message, we send this, but with sender to the old timestamp
-                with open("logfile.txt", "r") as old_file:
+                with open(filename, "r") as old_file:
                     search = "[s] [{time}] <{dest}> ".format(time=sender, dest=destination)
                     new = new.replace(timestamp, "{}:{}".format(sender, timestamp)) # sender is old
                     for line in old_file:
@@ -139,7 +149,7 @@ def syncMessageReceive(timestamp, sender, destination, groupID, message, attachm
                 new_file.write(new)
             new_file.close()
 
-        shutil.move("logfile2.txt", "logfile.txt")
+        shutil.move(filename + "2", filename)
 
         if not(found) and not(attachments is False): # It is set to False at send_message function, since send_message is used in messages.py which adds the message as well
             id = -1

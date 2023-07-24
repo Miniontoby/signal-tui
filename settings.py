@@ -228,6 +228,8 @@ def link_device():
     screen.addstr(int(curses.LINES/6) + 4, int(curses.COLS/6) + 4, "scan this qr-code to link this device with your phone")
     screen.refresh()
 
+    original_accounts = signal_cli_wrapper.list_accounts()
+
     url = signal_cli_wrapper.link_device()
     # Returns a URI of the form "sgnl://linkdevice?uuid=…​". This can be piped to a QR encoder to create a display that can be captured by a Signal smartphone client.
 
@@ -248,6 +250,15 @@ def link_device():
 
     # redraw top menu
     shared.draw_top_menu(screen)
+
+    new_accounts = signal_cli_wrapper.list_accounts()
+
+    for number in new_accounts:
+        if not(number in original_accounts):
+            old = open(shared.INSTALL_DIRECTORY + "/accounts/" + shared.username, "r").read().split("\n")
+            open(shared.INSTALL_DIRECTORY + "/accounts/" + shared.username, "w").write(old[0] + "\n" + number)
+            shared.phone_number = number
+            break
 
     screen.refresh()
     time.sleep(3)
